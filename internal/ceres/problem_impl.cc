@@ -34,13 +34,16 @@
 #include <algorithm>
 #include <cstddef>
 #include <iterator>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
+
 #include "ceres/casts.h"
 #include "ceres/compressed_row_jacobian_writer.h"
 #include "ceres/compressed_row_sparse_matrix.h"
+#include "ceres/context_impl.h"
 #include "ceres/cost_function.h"
 #include "ceres/crs_matrix.h"
 #include "ceres/evaluator.h"
@@ -62,7 +65,6 @@ namespace internal {
 using std::map;
 using std::string;
 using std::vector;
-typedef std::map<double*, internal::ParameterBlock*> ParameterMap;
 
 namespace {
 // Returns true if two regions of memory, a and b, with sizes size_a and size_b
@@ -89,7 +91,7 @@ void CheckForNoAliasing(double* existing_block,
 template <typename KeyType>
 void DecrementValueOrDeleteKey(const KeyType key,
                                std::map<KeyType, int>* container) {
-  typename std::map<KeyType, int>::iterator it = container->find(key);
+  auto it = container->find(key);
   if (it->second == 1) {
     delete key;
     container->erase(it);
@@ -104,6 +106,18 @@ void STLDeleteContainerPairFirstPointers(ForwardIterator begin,
   while (begin != end) {
     delete begin->first;
     ++begin;
+  }
+}
+
+void InitializeContext(Context* context,
+                       ContextImpl** context_impl,
+                       bool* context_impl_owned) {
+  if (context == NULL) {
+    *context_impl_owned = true;
+    *context_impl = new ContextImpl;
+  } else {
+    *context_impl_owned = false;
+    *context_impl = down_cast<ContextImpl*>(context);
   }
 }
 
@@ -230,13 +244,17 @@ void ProblemImpl::DeleteBlock(ParameterBlock* parameter_block) {
 }
 
 ProblemImpl::ProblemImpl()
-    : program_(new internal::Program) {
+    : options_(Problem::Options()),
+      program_(new internal::Program) {
   residual_parameters_.reserve(10);
+  InitializeContext(options_.context, &context_impl_, &context_impl_owned_);
 }
 
 ProblemImpl::ProblemImpl(const Problem::Options& options)
-    : options_(options), program_(new internal::Program) {
+    : options_(options),
+      program_(new internal::Program) {
   residual_parameters_.reserve(10);
+  InitializeContext(options_.context, &context_impl_, &context_impl_owned_);
 }
 
 ProblemImpl::~ProblemImpl() {
@@ -261,6 +279,10 @@ ProblemImpl::~ProblemImpl() {
   // Delete the owned parameterizations.
   STLDeleteUniqueContainerPointers(local_parameterizations_to_delete_.begin(),
                                    local_parameterizations_to_delete_.end());
+
+  if (context_impl_owned_) {
+    delete context_impl_;
+  }
 }
 
 ResidualBlock* ProblemImpl::AddResidualBlock(
@@ -798,7 +820,11 @@ bool ProblemImpl::Evaluate(const Problem::EvaluateOptions& evaluate_options,
   evaluator_options.num_threads = evaluate_options.num_threads;
 #endif  // CERES_NO_THREADS
 
-  scoped_ptr<Evaluator> evaluator(
+  // The main thread also does work so we only need to launch num_threads - 1.
+  context_impl_->EnsureMinimumThreads(evaluator_options.num_threads - 1);
+  evaluator_options.context = context_impl_;
+
+  std::unique_ptr<Evaluator> evaluator(
       new ProgramEvaluator<ScratchEvaluatePreparer,
                            CompressedRowJacobianWriter>(evaluator_options,
                                                         &program));
@@ -811,7 +837,7 @@ bool ProblemImpl::Evaluate(const Problem::EvaluateOptions& evaluate_options,
     gradient->resize(evaluator->NumEffectiveParameters());
   }
 
-  scoped_ptr<CompressedRowSparseMatrix> tmp_jacobian;
+  std::unique_ptr<CompressedRowSparseMatrix> tmp_jacobian;
   if (jacobian != NULL) {
     tmp_jacobian.reset(
         down_cast<CompressedRowSparseMatrix*>(evaluator->CreateJacobian()));
@@ -911,10 +937,9 @@ bool ProblemImpl::HasParameterBlock(const double* parameter_block) const {
 void ProblemImpl::GetParameterBlocks(vector<double*>* parameter_blocks) const {
   CHECK_NOTNULL(parameter_blocks);
   parameter_blocks->resize(0);
-  for (ParameterMap::const_iterator it = parameter_block_map_.begin();
-       it != parameter_block_map_.end();
-       ++it) {
-    parameter_blocks->push_back(it->first);
+  parameter_blocks->reserve(parameter_block_map_.size());
+  for (const auto& entry : parameter_block_map_) {
+    parameter_blocks->push_back(entry.first);
   }
 }
 

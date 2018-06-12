@@ -1,5 +1,5 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2018 Google Inc. All rights reserved.
 // http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,45 +26,22 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: keir@google.com (Keir Mierle)
-//
-// Portable floating point classification. The names are picked such that they
-// do not collide with macros. For example, "isnan" in C99 is a macro and hence
-// does not respect namespaces.
-//
-// TODO(keir): Finish porting!
+// Author: sameeragarwal@google.com (Sameer Agarwal)
 
-#ifndef CERES_PUBLIC_FPCLASSIFY_H_
-#define CERES_PUBLIC_FPCLASSIFY_H_
+#include "ceres/float_suitesparse.h"
 
-#if defined(_MSC_VER)
-#include <float.h>
-#endif
-
-#include <limits>
+#if !defined(CERES_NO_SUITESPARSE)
 
 namespace ceres {
+namespace internal {
 
-#if defined(_MSC_VER)
-
-inline bool IsFinite  (double x) { return _finite(x) != 0;                   }
-inline bool IsInfinite(double x) { return _finite(x) == 0 && _isnan(x) == 0; }
-inline bool IsNaN     (double x) { return _isnan(x) != 0;                    }
-inline bool IsNormal  (double x) {  // NOLINT
-  const int classification = _fpclass(x);
-  return (classification == _FPCLASS_NN || classification == _FPCLASS_PN);
+std::unique_ptr<SparseCholesky> FloatSuiteSparseCholesky::Create(
+    OrderingType ordering_type) {
+  LOG(FATAL) << "FloatSuiteSparseCholesky is not available.";
+  return std::unique_ptr<SparseCholesky>();
 }
 
-# else
-
-// These definitions are for the normal Unix suspects.
-inline bool IsFinite  (double x) { return std::isfinite(x); }
-inline bool IsInfinite(double x) { return std::isinf(x);    }
-inline bool IsNaN     (double x) { return std::isnan(x);    }
-inline bool IsNormal  (double x) { return std::isnormal(x); }
-
-#endif
-
+}  // namespace internal
 }  // namespace ceres
 
-#endif  // CERES_PUBLIC_FPCLASSIFY_H_
+#endif  // !defined(CERES_NO_SUITESPARSE)

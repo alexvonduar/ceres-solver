@@ -64,16 +64,6 @@ void ChangeNumThreadsIfNeeded(Solver::Options* options) {
         << "to single threaded mode.";
     options->num_threads = 1;
   }
-
-  // Only the Trust Region solver currently uses a linear solver.
-  if (options->minimizer_type == TRUST_REGION &&
-      options->num_linear_solver_threads > 1) {
-    LOG(WARNING)
-        << "Neither OpenMP nor TBB support is compiled into this binary; "
-        << "only options.num_linear_solver_threads=1 is supported. Switching "
-        << "to single threaded mode.";
-    options->num_linear_solver_threads = 1;
-  }
 #endif  // CERES_NO_THREADS
 }
 
