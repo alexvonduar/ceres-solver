@@ -1,5 +1,5 @@
 # Ceres Solver - A fast non-linear least squares minimizer
-# Copyright 2015 Google Inc. All rights reserved.
+# Copyright 2018 Google Inc. All rights reserved.
 # http://ceres-solver.org/
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,15 +25,15 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+#
+# Authors: alexs.mac@gmail.com (Alex Stewart)
 
-APP_BUILD_SCRIPT := $(call my-dir)/Android.mk
-APP_PROJECT_PATH := $(call my-dir)
-
-APP_CPPFLAGS += -fno-exceptions
-APP_CPPFLAGS += -fno-rtti
-APP_OPTIM := release
-
-# Use libc++ from LLVM. It is a modern BSD licensed implementation of
-# the standard C++ library.
-APP_STL := c++_static
-APP_ABI := armeabi-v7a
+# pretty_print_cmake_list( OUTPUT_VAR [item1 [item2 ... ]] )
+#
+# Sets ${OUTPUT_VAR} in the caller's scope to a human-readable string
+# representation of the list passed as the remaining arguments formed
+# as: "[item1, item2, ..., itemN]".
+function(pretty_print_cmake_list OUTPUT_VAR)
+  string(REPLACE ";" ", " PRETTY_LIST_STRING "[${ARGN}]")
+  set(${OUTPUT_VAR} "${PRETTY_LIST_STRING}" PARENT_SCOPE)
+endfunction()
