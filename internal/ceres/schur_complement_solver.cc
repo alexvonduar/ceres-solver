@@ -131,7 +131,8 @@ LinearSolver::Summary SchurComplementSolver::SolveImpl(
                     &options_.row_block_size,
                     &options_.e_block_size,
                     &options_.f_block_size);
-    eliminator_.reset(CHECK_NOTNULL(SchurEliminatorBase::Create(options_)));
+    eliminator_.reset(SchurEliminatorBase::Create(options_));
+    CHECK(eliminator_ != nullptr);
     const bool kFullRankETE = true;
     eliminator_->Init(
         options_.elimination_groups[0], kFullRankETE, A->block_structure());
@@ -285,7 +286,7 @@ void SparseSchurComplementSolver::InitStorage(
     }
   }
 
-  // Remaing rows do not contribute to the chunks and directly go
+  // Remaining rows do not contribute to the chunks and directly go
   // into the schur complement via an outer product.
   for (; r < num_row_blocks; ++r) {
     const CompressedRow& row = bs->rows[r];
@@ -378,16 +379,14 @@ SparseSchurComplementSolver::SolveReducedLinearSystemUsingConjugateGradients(
 
     int sc_r, sc_c, sc_row_stride, sc_col_stride;
     CellInfo* sc_cell_info =
-        CHECK_NOTNULL(sc->GetCell(i, i,
-                                  &sc_r, &sc_c,
-                                  &sc_row_stride, &sc_col_stride));
+        sc->GetCell(i, i, &sc_r, &sc_c, &sc_row_stride, &sc_col_stride);
+    CHECK(sc_cell_info != nullptr);
     MatrixRef sc_m(sc_cell_info->values, sc_row_stride, sc_col_stride);
 
     int pre_r, pre_c, pre_row_stride, pre_col_stride;
-    CellInfo* pre_cell_info = CHECK_NOTNULL(
-        preconditioner_->GetCell(i, i,
-                                 &pre_r, &pre_c,
-                                 &pre_row_stride, &pre_col_stride));
+    CellInfo* pre_cell_info = preconditioner_->GetCell(
+        i, i, &pre_r, &pre_c, &pre_row_stride, &pre_col_stride);
+    CHECK(pre_cell_info != nullptr);
     MatrixRef pre_m(pre_cell_info->values, pre_row_stride, pre_col_stride);
 
     pre_m.block(pre_r, pre_c, block_size, block_size) =

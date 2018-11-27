@@ -74,7 +74,7 @@ class GradientCheckingCostFunction : public CostFunction {
         relative_precision_(relative_precision),
         extra_info_(extra_info),
         callback_(callback) {
-    CHECK_NOTNULL(callback_);
+    CHECK(callback_ != nullptr);
     const vector<int32_t>& parameter_block_sizes =
         function->parameter_block_sizes();
     *mutable_parameter_block_sizes() = parameter_block_sizes;
@@ -175,7 +175,7 @@ ProblemImpl* CreateGradientCheckingProblemImpl(
     double relative_step_size,
     double relative_precision,
     GradientCheckingIterationCallback* callback) {
-  CHECK_NOTNULL(callback);
+  CHECK(callback != nullptr);
   // We create new CostFunctions by wrapping the original CostFunction
   // in a gradient checking CostFunction. So its okay for the
   // ProblemImpl to take ownership of it and destroy it. The
@@ -266,7 +266,8 @@ ProblemImpl* CreateGradientCheckingProblemImpl(
     gradient_checking_problem_impl->AddResidualBlock(
         gradient_checking_cost_function,
         const_cast<LossFunction*>(residual_block->loss_function()),
-        parameter_blocks);
+        parameter_blocks.data(),
+        static_cast<int>(parameter_blocks.size()));
   }
 
   // Normally, when a problem is given to the solver, we guarantee
