@@ -52,7 +52,7 @@ namespace ceres {
 //
 // "Cubic convolution interpolation for digital image processing".
 // IEEE Transactions on Acoustics, Speech, and Signal Processing
-// 29 (6): 1153–1160.
+// 29 (6): 1153-1160.
 //
 // For more details see
 //
@@ -116,7 +116,7 @@ void CubicHermiteSpline(const Eigen::Matrix<double, kDataDimension, 1>& p0,
 // Example usage:
 //
 //  const double data[] = {1.0, 2.0, 5.0, 6.0};
-//  Grid1D<double, 1> grid(x, 0, 4);
+//  Grid1D<double, 1> grid(data, 0, 4);
 //  CubicInterpolator<Grid1D<double, 1>> interpolator(grid);
 //  double f, dfdx;
 //  interpolator.Evaluator(1.5, &f, &dfdx);
@@ -237,7 +237,7 @@ struct Grid1D {
 //
 // "Cubic convolution interpolation for digital image processing".
 // Robert G. Keys, IEEE Trans. on Acoustics, Speech, and Signal
-// Processing 29 (6): 1153–1160, 1981.
+// Processing 29 (6): 1153-1160, 1981.
 //
 // http://en.wikipedia.org/wiki/Cubic_Hermite_spline
 // http://en.wikipedia.org/wiki/Bicubic_interpolation

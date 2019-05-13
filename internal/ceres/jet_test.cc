@@ -44,6 +44,8 @@
 namespace ceres {
 namespace internal {
 
+namespace {
+
 const double kE = 2.71828182845904523536;
 
 typedef Jet<double, 2> J;
@@ -88,7 +90,7 @@ void NumericalTest2(const char* name, const Function& f,
   const double exact_dx = exact_delta.v[0];
   const double exact_dy = exact_delta.v[1];
 
-  // Sanity check – these should be equivalent:
+  // Sanity check - these should be equivalent:
   EXPECT_EQ(exact_dx, f(MakeJet(x, 1.0, 0.0), MakeJet(y, 0.0, 0.0)).v[0]);
   EXPECT_EQ(exact_dx, f(MakeJet(x, 0.0, 1.0), MakeJet(y, 0.0, 0.0)).v[1]);
   EXPECT_EQ(exact_dy, f(MakeJet(x, 0.0, 0.0), MakeJet(y, 1.0, 0.0)).v[0]);
@@ -105,6 +107,8 @@ void NumericalTest2(const char* name, const Function& f,
      << exact_dy << ", estimated dy: " << estimated_dy;
   ExpectClose(exact_dy, estimated_dy, kNumericalTolerance);
 }
+
+}  // namespace
 
 TEST(Jet, Jet) {
   // Pick arbitrary values for x and y.

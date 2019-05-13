@@ -77,29 +77,12 @@ project(Ceres C CXX)
 # append rather than set in case the user has passed their own
 # additional paths via -D.
 list(APPEND CMAKE_MODULE_PATH "${Ceres_SOURCE_DIR}/cmake")
+include(AddCompileFlagsIfSupported)
 include(UpdateCacheVariable)
 
 # Set up the git hook to make Gerrit Change-Id: lines in commit messages.
 include(AddGerritCommitHook)
 add_gerrit_commit_hook(${Ceres_SOURCE_DIR} ${Ceres_BINARY_DIR})
-
-# On OS X, add the Homebrew prefix to the set of prefixes searched by
-# CMake in find_path & find_library.  This should ensure that we can
-# still build Ceres even if Homebrew is installed in a non-standard
-# location (not /usr/local).
-if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
-  find_program(HOMEBREW_EXECUTABLE brew)
-  mark_as_advanced(FORCE HOMEBREW_EXECUTABLE)
-  if (HOMEBREW_EXECUTABLE)
-    # Detected a Homebrew install, query for its install prefix.
-    execute_process(COMMAND ${HOMEBREW_EXECUTABLE} --prefix
-      OUTPUT_VARIABLE HOMEBREW_INSTALL_PREFIX
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    message(STATUS "Detected Homebrew with install prefix: "
-      "${HOMEBREW_INSTALL_PREFIX}, adding to CMake search paths.")
-    list(APPEND CMAKE_PREFIX_PATH "${HOMEBREW_INSTALL_PREFIX}")
-  endif()
-endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${Ceres_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${Ceres_BINARY_DIR}/lib)
@@ -157,6 +140,9 @@ option(BUILD_DOCUMENTATION "Build User's Guide (html)" OFF)
 option(BUILD_EXAMPLES "Build examples" ON)
 option(BUILD_BENCHMARKS "Build Ceres benchmarking suite" ON)
 option(BUILD_SHARED_LIBS "Build Ceres as a shared library." OFF)
+set(SANITIZERS "" CACHE STRING "Semicolon-separated list of sanitizers to use (e.g address, memory, thread)")
+include(EnableSanitizer)
+enable_sanitizer(${SANITIZERS})
 if (ANDROID)
   option(ANDROID_STRIP_DEBUG_SYMBOLS "Strip debug symbols from Android builds (reduces file sizes)" ON)
 endif()
@@ -585,9 +571,20 @@ if (MSVC)
 endif (MSVC)
 
 if (UNIX)
-  # GCC is not strict enough by default, so enable most of the warnings.
-  set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas -Wno-sign-compare -Wno-unused-parameter -Wno-missing-field-initializers")
+  # Flags which we add to GCC to make it more picky about stuff
+  # we do care about,
+  add_cxx_compiler_flag_if_supported(CERES_STRICT_CXX_FLAGS
+                                     -Wmissing-declarations)
+  # Flags which we add to GCC to silence lots of annoying false-positives.
+  add_cxx_compiler_flag_if_supported(CERES_STRICT_CXX_FLAGS
+                                     -Wno-unknown-pragmas)
+  add_cxx_compiler_flag_if_supported(CERES_STRICT_CXX_FLAGS
+                                     -Wno-sign-compare)
+  add_cxx_compiler_flag_if_supported(CERES_STRICT_CXX_FLAGS
+                                     -Wno-unused-parameter)
+  add_cxx_compiler_flag_if_supported(CERES_STRICT_CXX_FLAGS
+                                     -Wno-missing-field-initializers)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CERES_STRICT_CXX_FLAGS}")
 endif (UNIX)
 
 # Use a larger inlining threshold for Clang, since it hobbles Eigen,

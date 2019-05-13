@@ -45,7 +45,7 @@ typedef ::testing::
     tuple<LinearSolverType, DenseLinearAlgebraLibraryType, bool, int>
         Param;
 
-std::string ParamInfoToString(testing::TestParamInfo<Param> info) {
+static std::string ParamInfoToString(testing::TestParamInfo<Param> info) {
   Param param = info.param;
   std::stringstream ss;
   ss << LinearSolverTypeToString(::testing::get<0>(param)) << "_"
@@ -107,11 +107,13 @@ TEST_P(DenseLinearSolverTest, _) {
   EXPECT_NEAR(residual, 0.0, 10 * std::numeric_limits<double>::epsilon());
 }
 
+namespace {
+
 // TODO(sameeragarwal): Should we move away from hard coded linear
 // least squares problem to randomly generated ones?
 #ifndef CERES_NO_LAPACK
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     DenseLinearSolver,
     DenseLinearSolverTest,
     ::testing::Combine(::testing::Values(DENSE_QR, DENSE_NORMAL_CHOLESKY),
@@ -122,7 +124,7 @@ INSTANTIATE_TEST_CASE_P(
 
 #else
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     DenseLinearSolver,
     DenseLinearSolverTest,
     ::testing::Combine(::testing::Values(DENSE_QR, DENSE_NORMAL_CHOLESKY),
@@ -132,6 +134,6 @@ INSTANTIATE_TEST_CASE_P(
     ParamInfoToString);
 
 #endif
-
+}  // namespace
 }  // namespace internal
 }  // namespace ceres

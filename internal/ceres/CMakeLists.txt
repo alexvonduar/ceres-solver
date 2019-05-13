@@ -219,6 +219,16 @@ if (MINIGLOG)
   list(APPEND CERES_LIBRARY_SOURCE miniglog/glog/logging.cc)
 endif (MINIGLOG)
 
+# Ceres C++ compiler flags can be too strict for an external library code
+# which we do not maintain.
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-Wno-missing-declarations"
+                        CHECK_CXX_FLAG_Wno_missing_declarations)
+if (CHECK_CXX_FLAG_Wno_missing_declarations)
+  set_property(SOURCE gmock_gtest_all.cc
+               APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-missing-declarations")
+endif()
+
 add_library(ceres ${CERES_LIBRARY_SOURCE})
 set_target_properties(ceres PROPERTIES
   VERSION ${CERES_VERSION}
@@ -390,8 +400,10 @@ if (BUILD_TESTING AND GFLAGS)
              ${Ceres_SOURCE_DIR}/data)
   endmacro (CERES_TEST)
 
+  ceres_test(algorithm)
   ceres_test(array_utils)
   ceres_test(autodiff)
+  ceres_test(autodiff_first_order_function)
   ceres_test(autodiff_cost_function)
   ceres_test(autodiff_local_parameterization)
   ceres_test(block_jacobi_preconditioner)
@@ -421,6 +433,7 @@ if (BUILD_TESTING AND GFLAGS)
   ceres_test(dynamic_sparsity)
   ceres_test(evaluation_callback)
   ceres_test(evaluator)
+  ceres_test(fixed_array)
   ceres_test(gradient_checker)
   ceres_test(gradient_checking_cost_function)
   ceres_test(gradient_problem)

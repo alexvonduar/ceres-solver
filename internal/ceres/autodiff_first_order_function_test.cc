@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2015 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2019 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -26,89 +26,51 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: vitus@google.com (Michael Vitus)
+// Author: sameeragarwal@google.com (Sameer Agarwal)
 
-#include "ceres/householder_vector.h"
-#include "ceres/internal/eigen.h"
-#include "glog/logging.h"
+#include "ceres/autodiff_first_order_function.h"
+
+#include <memory>
+
+#include "ceres/array_utils.h"
+#include "ceres/first_order_function.h"
 #include "gtest/gtest.h"
 
 namespace ceres {
 namespace internal {
 
-static void HouseholderTestHelper(const Vector& x) {
-  const double kTolerance = 1e-14;
-
-  // Check to ensure that H * x = ||x|| * [0 ... 0 1]'.
-  Vector v(x.rows());
-  double beta;
-  ComputeHouseholderVector(x, &v, &beta);
-  Vector result = x - beta * v * (v.transpose() * x);
-
-  Vector expected_result(x.rows());
-  expected_result.setZero();
-  expected_result(x.rows() - 1) = 1;
-  expected_result *= x.norm();
-
-  for (int i = 0; i < x.rows(); ++i) {
-    EXPECT_NEAR(expected_result[i], result[i], kTolerance);
+class QuadraticCostFunctor {
+ public:
+  explicit QuadraticCostFunctor(double a) : a_(a) {}
+  template <typename T>
+  bool operator()(const T* const x, T* cost) const {
+    cost[0] = x[0] * x[1] + x[2] * x[3] - T(a_);
+    return true;
   }
-}
 
-TEST(HouseholderVector, ZeroPositive) {
-  Vector x(3);
-  x << 0.0, 0.0, 0.25;
+ private:
+  double a_;
+};
 
-  HouseholderTestHelper(x);
-}
+TEST(AutoDiffFirstOrderFunction, BilinearDifferentiationTest) {
+  std::unique_ptr<FirstOrderFunction> function(
+      new AutoDiffFirstOrderFunction<QuadraticCostFunctor, 4>(
+          new QuadraticCostFunctor(1.0)));
 
-TEST(HouseholderVector, ZeroNegative) {
-  Vector x(3);
-  x << 0.0, 0.0, -0.25;
+  double parameters[4] = {1.0, 2.0, 3.0, 4.0};
+  double gradient[4];
+  double cost;
 
-  HouseholderTestHelper(x);
-}
+  function->Evaluate(parameters, &cost, nullptr);
+  EXPECT_EQ(cost, 13.0);
 
-TEST(HouseholderVector, NearZeroPositive) {
-  Vector x(3);
-  x << 1e-18, 1e-18, 0.25;
-
-  HouseholderTestHelper(x);
-}
-
-TEST(HouseholderVector, NearZeroNegative) {
-  Vector x(3);
-  x << 1e-18, 1e-18, -0.25;
-
-  HouseholderTestHelper(x);
-}
-
-TEST(HouseholderVector, NonZeroNegative) {
-  Vector x(3);
-  x << 1.0, 0.0, -3.0;
-
-  HouseholderTestHelper(x);
-}
-
-TEST(HouseholderVector, NonZeroPositive) {
-  Vector x(3);
-  x << 1.0, 1.0, 1.0;
-
-  HouseholderTestHelper(x);
-}
-
-TEST(HouseholderVector, NonZeroPositive_Size4) {
-  Vector x(4);
-  x << 1.0, 1.0, 0.0, 2.0;
-
-  HouseholderTestHelper(x);
-}
-
-TEST(HouseholderVector, LastElementZero) {
-  Vector x(4);
-  x << 1.0, 1.0, 0.0, 0.0;
-
-  HouseholderTestHelper(x);
+  cost = -1.0;
+  function->Evaluate(parameters, &cost, gradient);
+  EXPECT_EQ(cost, 13.0);
+  EXPECT_EQ(gradient[0], parameters[1]);
+  EXPECT_EQ(gradient[1], parameters[0]);
+  EXPECT_EQ(gradient[2], parameters[3]);
+  EXPECT_EQ(gradient[3], parameters[2]);
 }
 
 }  // namespace internal

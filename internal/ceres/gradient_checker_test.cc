@@ -170,10 +170,10 @@ class BadTestTerm : public CostFunction {
 
 const double kTolerance = 1e-6;
 
-void CheckDimensions(const GradientChecker::ProbeResults& results,
-                     const std::vector<int>& parameter_sizes,
-                     const std::vector<int>& local_parameter_sizes,
-                     int residual_size) {
+static void CheckDimensions(const GradientChecker::ProbeResults& results,
+                            const std::vector<int>& parameter_sizes,
+                            const std::vector<int>& local_parameter_sizes,
+                            int residual_size) {
   CHECK_EQ(parameter_sizes.size(), local_parameter_sizes.size());
   int num_parameters = parameter_sizes.size();
   ASSERT_EQ(residual_size, results.residuals.size());
@@ -219,9 +219,9 @@ TEST(GradientChecker, SmokeTest) {
   // Test that Probe returns true for correct Jacobians.
   GoodTestTerm good_term(num_parameters, parameter_sizes.data());
   GradientChecker good_gradient_checker(&good_term, NULL, numeric_diff_options);
-  EXPECT_TRUE(good_gradient_checker.Probe(parameters.get(), kTolerance, NULL));
+  EXPECT_TRUE(good_gradient_checker.Probe(parameters.data(), kTolerance, NULL));
   EXPECT_TRUE(
-      good_gradient_checker.Probe(parameters.get(), kTolerance, &results))
+      good_gradient_checker.Probe(parameters.data(), kTolerance, &results))
       << results.error_log;
 
   // Check that results contain sensible data.
@@ -233,9 +233,10 @@ TEST(GradientChecker, SmokeTest) {
 
   // Test that if the cost function return false, Probe should return false.
   good_term.SetReturnValue(false);
-  EXPECT_FALSE(good_gradient_checker.Probe(parameters.get(), kTolerance, NULL));
   EXPECT_FALSE(
-      good_gradient_checker.Probe(parameters.get(), kTolerance, &results))
+      good_gradient_checker.Probe(parameters.data(), kTolerance, NULL));
+  EXPECT_FALSE(
+      good_gradient_checker.Probe(parameters.data(), kTolerance, &results))
       << results.error_log;
 
   // Check that results contain sensible data.
@@ -252,9 +253,9 @@ TEST(GradientChecker, SmokeTest) {
   // Test that Probe returns false for incorrect Jacobians.
   BadTestTerm bad_term(num_parameters, parameter_sizes.data());
   GradientChecker bad_gradient_checker(&bad_term, NULL, numeric_diff_options);
-  EXPECT_FALSE(bad_gradient_checker.Probe(parameters.get(), kTolerance, NULL));
+  EXPECT_FALSE(bad_gradient_checker.Probe(parameters.data(), kTolerance, NULL));
   EXPECT_FALSE(
-      bad_gradient_checker.Probe(parameters.get(), kTolerance, &results));
+      bad_gradient_checker.Probe(parameters.data(), kTolerance, &results));
 
   // Check that results contain sensible data.
   ASSERT_EQ(results.return_value, true);
@@ -264,7 +265,7 @@ TEST(GradientChecker, SmokeTest) {
   EXPECT_FALSE(results.error_log.empty());
 
   // Setting a high threshold should make the test pass.
-  EXPECT_TRUE(bad_gradient_checker.Probe(parameters.get(), 1.0, &results));
+  EXPECT_TRUE(bad_gradient_checker.Probe(parameters.data(), 1.0, &results));
 
   // Check that results contain sensible data.
   ASSERT_EQ(results.return_value, true);
@@ -367,7 +368,7 @@ class MatrixParameterization : public LocalParameterization {
 };
 
 // Helper function to compare two Eigen matrices (used in the test below).
-void ExpectMatricesClose(Matrix p, Matrix q, double tolerance) {
+static void ExpectMatricesClose(Matrix p, Matrix q, double tolerance) {
   ASSERT_EQ(p.rows(), q.rows());
   ASSERT_EQ(p.cols(), q.cols());
   ExpectArraysClose(p.size(), p.data(), q.data(), tolerance);

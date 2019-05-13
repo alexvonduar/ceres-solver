@@ -48,7 +48,7 @@ namespace internal {
 
 using std::vector;
 
-void CompareMatrices(const SparseMatrix* a, const SparseMatrix* b) {
+static void CompareMatrices(const SparseMatrix* a, const SparseMatrix* b) {
   EXPECT_EQ(a->num_rows(), b->num_rows());
   EXPECT_EQ(a->num_cols(), b->num_cols());
 
@@ -380,7 +380,7 @@ TEST(CompressedRowSparseMatrix, FromTripletSparseMatrixTransposed) {
 
 typedef ::testing::tuple<CompressedRowSparseMatrix::StorageType> Param;
 
-std::string ParamInfoToString(testing::TestParamInfo<Param> info) {
+static std::string ParamInfoToString(testing::TestParamInfo<Param> info) {
   if (::testing::get<0>(info.param) ==
       CompressedRowSparseMatrix::UPPER_TRIANGULAR) {
     return "UPPER";
@@ -454,7 +454,7 @@ TEST_P(RightMultiplyTest, _) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     CompressedRowSparseMatrix,
     RightMultiplyTest,
     ::testing::Values(CompressedRowSparseMatrix::LOWER_TRIANGULAR,
@@ -522,7 +522,7 @@ TEST_P(LeftMultiplyTest, _) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     CompressedRowSparseMatrix,
     LeftMultiplyTest,
     ::testing::Values(CompressedRowSparseMatrix::LOWER_TRIANGULAR,
@@ -586,7 +586,7 @@ TEST_P(SquaredColumnNormTest, _) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     CompressedRowSparseMatrix,
     SquaredColumnNormTest,
     ::testing::Values(CompressedRowSparseMatrix::LOWER_TRIANGULAR,

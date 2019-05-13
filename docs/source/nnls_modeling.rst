@@ -716,7 +716,7 @@ Numeric Differentiation & LocalParameterization
 
    .. code-block:: c++
 
-    struct IntrinsicProjection
+    struct IntrinsicProjection {
       IntrinsicProjection(const double* observation) {
         observation_[0] = observation[0];
         observation_[1] = observation[1];
@@ -724,14 +724,14 @@ Numeric Differentiation & LocalParameterization
 
       bool operator()(const double* calibration,
                       const double* point,
-                      double* residuals) {
+                      double* residuals) const {
         double projection[2];
         ThirdPartyProjectionFunction(calibration, point, projection);
         residuals[0] = observation_[0] - projection[0];
         residuals[1] = observation_[1] - projection[1];
         return true;
       }
-     double observation_[2];
+      double observation_[2];
     };
 
 
@@ -746,10 +746,9 @@ Numeric Differentiation & LocalParameterization
 
    struct CameraProjection {
      CameraProjection(double* observation)
-       intrinsic_projection_(
-         new NumericDiffCostFunction<IntrinsicProjection, CENTRAL, 2, 5, 3>(
-           new IntrinsicProjection(observation)) {
-     }
+        : intrinsic_projection_(
+              new NumericDiffCostFunction<IntrinsicProjection, CENTRAL, 2, 5, 3>(
+                  new IntrinsicProjection(observation))) {}
 
      template <typename T>
      bool operator()(const T* rotation,
@@ -759,12 +758,13 @@ Numeric Differentiation & LocalParameterization
                      T* residuals) const {
        T transformed_point[3];
        RotateAndTranslatePoint(rotation, translation, point, transformed_point);
-       return intrinsic_projection_(intrinsics, transformed_point, residual);
+       return intrinsic_projection_(intrinsics, transformed_point, residuals);
      }
 
     private:
-     CostFunctionToFunctor<2,5,3> intrinsic_projection_;
+     CostFunctionToFunctor<2, 5, 3> intrinsic_projection_;
    };
+
 
 :class:`DynamicCostFunctionToFunctor`
 =====================================
@@ -1386,7 +1386,7 @@ Instances
    .. code-block:: c++
 
      ProductParameterization se3_param(new QuaternionParameterization(),
-                                       new IdentityTransformation(3));
+                                       new IdentityParameterization(3));
 
 
 :class:`AutoDiffLocalParameterization`
@@ -1753,6 +1753,39 @@ Instances
 
    Get the :class:`LossFunction` for the given residual block.
 
+.. function::  bool EvaluateResidualBlock(ResidualBlockId residual_block_id, bool apply_loss_function, double* cost,double* residuals, double** jacobians) const;
+
+   Evaluates the residual block, storing the scalar cost in ``cost``, the
+   residual components in ``residuals``, and the jacobians between the
+   parameters and residuals in ``jacobians[i]``, in row-major order.
+
+   If ``residuals`` is ``nullptr``, the residuals are not computed.
+
+   If ``jacobians`` is ``nullptr``, no Jacobians are computed. If
+   ``jacobians[i]`` is ``nullptr``, then the Jacobian for that
+   parameter block is not computed.
+
+   It is not okay to request the Jacobian w.r.t a parameter block
+   that is constant.
+
+   The return value indicates the success or failure. Even if the
+   function returns false, the caller should expect the output
+   memory locations to have been modified.
+
+   The returned cost and jacobians have had robustification and local
+   parameterizations applied already; for example, the jacobian for a
+   4-dimensional quaternion parameter using the
+   :class:`QuaternionParameterization` is ``num_residuals x 3``
+   instead of ``num_residuals x 4``.
+
+   ``apply_loss_function`` as the name implies allows the user to
+   switch the application of the loss function on and off.
+
+   .. NOTE::
+
+      TODO(sameeragarwal): Clarify interaction with IterationCallback
+      once that cleanup is done.
+
 .. function:: bool Problem::Evaluate(const Problem::EvaluateOptions& options, double* cost, vector<double>* residuals, vector<double>* gradient, CRSMatrix* jacobian)
 
    Evaluate a :class:`Problem`. Any of the output pointers can be
@@ -1840,6 +1873,7 @@ Instances
 
    Number of threads to use. (Requires OpenMP).
 
+..
 ``rotation.h``
 ==============
 
