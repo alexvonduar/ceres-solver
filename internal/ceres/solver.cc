@@ -128,14 +128,6 @@ bool TrustRegionOptionsAreValid(const Solver::Options& options, string* error) {
     OPTION_GE(inner_iteration_tolerance, 0.0);
   }
 
-  if (options.use_inner_iterations &&
-      options.evaluation_callback != NULL) {
-    *error =  "Inner iterations (use_inner_iterations = true) can't be "
-        "combined with an evaluation callback "
-        "(options.evaluation_callback != NULL).";
-    return false;
-  }
-
   if (options.use_nonmonotonic_steps) {
     OPTION_GT(max_consecutive_nonmonotonic_steps, 0);
   }
@@ -161,47 +153,38 @@ bool TrustRegionOptionsAreValid(const Solver::Options& options, string* error) {
     return false;
   }
 
-  if (options.sparse_linear_algebra_library_type == NO_SPARSE) {
-    const char* error_template =
-        "Can't use %s with "
-        "Solver::Options::sparse_linear_algebra_library_type = NO_SPARSE.";
-    const char* name = nullptr;
-
-    if (options.linear_solver_type == SPARSE_NORMAL_CHOLESKY ||
-        options.linear_solver_type == SPARSE_SCHUR) {
-      name = LinearSolverTypeToString(options.linear_solver_type);
-    } else if (options.linear_solver_type == ITERATIVE_SCHUR &&
-               (options.preconditioner_type == CLUSTER_JACOBI ||
-                options.preconditioner_type == CLUSTER_TRIDIAGONAL)) {
-      name = PreconditionerTypeToString(options.preconditioner_type);
-    }
-
-    if (name != nullptr) {
-      *error = StringPrintf(error_template, name);
-      return false;
-    }
-  } else if (!IsSparseLinearAlgebraLibraryTypeAvailable(
-                 options.sparse_linear_algebra_library_type)) {
-    const char* error_template =
-        "Can't use %s with "
-        "Solver::Options::sparse_linear_algebra_library_type = %s, "
-        "because support was not enabled when Ceres Solver was built.";
+  {
+    const char* sparse_linear_algebra_library_name =
+        SparseLinearAlgebraLibraryTypeToString(
+            options.sparse_linear_algebra_library_type);
     const char* name = nullptr;
     if (options.linear_solver_type == SPARSE_NORMAL_CHOLESKY ||
         options.linear_solver_type == SPARSE_SCHUR) {
       name = LinearSolverTypeToString(options.linear_solver_type);
-    } else if (options.linear_solver_type == ITERATIVE_SCHUR &&
-               (options.preconditioner_type == CLUSTER_JACOBI ||
-                options.preconditioner_type == CLUSTER_TRIDIAGONAL)) {
+    } else if ((options.linear_solver_type == ITERATIVE_SCHUR &&
+                (options.preconditioner_type == CLUSTER_JACOBI ||
+                 options.preconditioner_type == CLUSTER_TRIDIAGONAL)) ||
+               (options.linear_solver_type == CGNR &&
+                options.preconditioner_type == SUBSET)) {
       name = PreconditionerTypeToString(options.preconditioner_type);
     }
 
-    if (name != nullptr) {
-      *error = StringPrintf(error_template,
-                            name,
-                            SparseLinearAlgebraLibraryTypeToString(
-                                options.sparse_linear_algebra_library_type));
-      return false;
+    if (name) {
+      if (options.sparse_linear_algebra_library_type == NO_SPARSE) {
+        *error = StringPrintf(
+            "Can't use %s with "
+            "Solver::Options::sparse_linear_algebra_library_type = %s.",
+            name, sparse_linear_algebra_library_name);
+        return false;
+      } else if (!IsSparseLinearAlgebraLibraryTypeAvailable(
+                     options.sparse_linear_algebra_library_type)) {
+        *error = StringPrintf(
+            "Can't use %s with "
+            "Solver::Options::sparse_linear_algebra_library_type = %s, "
+            "because support was not enabled when Ceres Solver was built.",
+            name, sparse_linear_algebra_library_name);
+        return false;
+      }
     }
   }
 
@@ -215,16 +198,32 @@ bool TrustRegionOptionsAreValid(const Solver::Options& options, string* error) {
     }
   }
 
-  if (options.trust_region_minimizer_iterations_to_dump.size() > 0 &&
+  if (!options.trust_region_minimizer_iterations_to_dump.empty() &&
       options.trust_region_problem_dump_format_type != CONSOLE &&
       options.trust_region_problem_dump_directory.empty()) {
     *error = "Solver::Options::trust_region_problem_dump_directory is empty.";
     return false;
   }
 
-  if (options.dynamic_sparsity &&
-      options.linear_solver_type != SPARSE_NORMAL_CHOLESKY) {
-    *error = "Dynamic sparsity is only supported with SPARSE_NORMAL_CHOLESKY.";
+  if (options.dynamic_sparsity) {
+    if (options.linear_solver_type != SPARSE_NORMAL_CHOLESKY) {
+      *error = "Dynamic sparsity is only supported with SPARSE_NORMAL_CHOLESKY.";
+      return false;
+    }
+    if (options.sparse_linear_algebra_library_type == ACCELERATE_SPARSE) {
+      *error = "ACCELERATE_SPARSE is not currently supported with dynamic "
+          "sparsity.";
+      return false;
+    }
+  }
+
+  if (options.linear_solver_type == CGNR &&
+      options.preconditioner_type == SUBSET &&
+      options.residual_blocks_for_subset_preconditioner.empty()) {
+    *error =
+        "When using SUBSET preconditioner, "
+        "Solver::Options::residual_blocks_for_subset_preconditioner cannot be "
+        "empty";
     return false;
   }
 
@@ -239,7 +238,8 @@ bool LineSearchOptionsAreValid(const Solver::Options& options, string* error) {
   OPTION_LT_OPTION(max_line_search_step_contraction,
                    min_line_search_step_contraction);
   OPTION_LE(min_line_search_step_contraction, 1.0);
-  OPTION_GT(max_num_line_search_step_size_iterations, 0);
+  OPTION_GE(max_num_line_search_step_size_iterations,
+            (options.minimizer_type == ceres::TRUST_REGION ? 0 : 1));
   OPTION_GT(line_search_sufficient_function_decrease, 0.0);
   OPTION_LT_OPTION(line_search_sufficient_function_decrease,
                    line_search_sufficient_curvature_decrease);
@@ -285,7 +285,7 @@ bool LineSearchOptionsAreValid(const Solver::Options& options, string* error) {
 #undef OPTION_LT_OPTION
 
 void StringifyOrdering(const vector<int>& ordering, string* report) {
-  if (ordering.size() == 0) {
+  if (ordering.empty()) {
     internal::StringAppendF(report, "AUTOMATIC");
     return;
   }
